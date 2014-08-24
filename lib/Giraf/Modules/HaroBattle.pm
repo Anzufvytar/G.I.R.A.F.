@@ -103,16 +103,14 @@ sub harobattle_uuid_change {
 				my $name = "[color=".$_bets->{$uuid_new}->{colour}."]".Giraf::User::getNickFromUUID($uuid)."[/c]";
 				push(@return, linemaker("$name est maintenant enregistré, [color=red]attention, il change de compte[/c], et ce qu'il avait parié à ce tour ci est retiré du pot."));
 			}
-			delete($_bets->{$uuid});
-			better_delete($uuid);
 		}
 	}
 	else {
 		$_bets->{$uuid_new} = $_bets->{$uuid};
-		delete($_bets->{$uuid});
-		better_delete($uuid);
 	}
 
+	delete($_bets->{$uuid});
+	better_delete($uuid);
 	return @return;
 }
 
@@ -280,6 +278,9 @@ sub harobattle_bet {
 	elsif ($bet > $_bets->{$uuid}->{wealth}) {
 		push (@return, linemaker("$name essaie de tricher, il n'as pas assez d'argent pour parier $bet."));
 	}
+	elsif ($bet < int($_bets->{$uuid}->{wealth} / 5)) {
+		push (@return, linemaker("$name n'atteinds pas la mise minimale de ".int($_bets->{$uuid}->{wealth} / 5)."."));
+	}
 	else {
 		if ($command eq $_champion->{nom}) {
 			$_bets->{$uuid}->{result} = $_champion->{id};
@@ -380,7 +381,7 @@ sub harobattle_add_taunt {
 
 	$sth->execute($1, $2, $3, $4);
 
-	push(@return, linemaker("Taunt enregistré \o/"));
+	push(@return, linemaker("Taunt enregistré \\o/"));
 	return @return;
 }
 
@@ -444,7 +445,7 @@ sub get_taunt {
 
 	$name1 = nom($haro1);
 	$name2 = nom($haro2);
-	$taunt =~ s/SAY/$name1 : /;
+	$taunt =~ s/SAY/$name1 :/;
 	$taunt =~ s/ACTION/\* $name1/;
 	$taunt =~ s/THISHARO/$name1/;
 	$taunt =~ s/OTHERHARO/$name2/;
@@ -792,7 +793,6 @@ sub bet_results {
 	return @return;
 }
 	
-
 ######## ##     ## ######## ##    ## ########    ##     ##    ###    ##    ## ########  ##       ######## ########   ######  
 ##       ##     ## ##       ###   ##    ##       ##     ##   ## ##   ###   ## ##     ## ##       ##       ##     ## ##    ## 
 ##       ##     ## ##       ####  ##    ##       ##     ##  ##   ##  ####  ## ##     ## ##       ##       ##     ## ##       

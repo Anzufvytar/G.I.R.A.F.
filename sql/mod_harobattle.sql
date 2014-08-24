@@ -36,6 +36,6 @@ INSERT INTO mod_harobattle_data VALUES('reward',                '1');
 
 -- Inserting the taunts
 
---                                      ha wi type       taunt
+--                                      ha wi  type       taunt
 
 COMMIT;
