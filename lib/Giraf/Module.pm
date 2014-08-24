@@ -13,13 +13,11 @@ use Giraf::Trigger;
 use DBI;
 use Switch;
 use LWP::UserAgent;
-# use XML::LibXML;
+use Data::Dumper;
 
 # Public vars
 
 # Private vars
-our $_kernel;
-our $_irc;
 our $_dbh;
 our $_tbl_modules = 'modules';
 our $_tbl_users = 'users';
@@ -28,7 +26,7 @@ our $_ua;
 
 sub mod_load {
 	my ($mod) = @_;
-	Giraf::Core::debug("Giraf::Module::mod_load($mod)");	
+	Giraf::Core::debug("Giraf::Module::mod_load($mod)");
 	my ($err,$version);
 	eval ("require Giraf::Modules::$mod;");
 	return $@;
@@ -38,7 +36,7 @@ sub mod_run {
 	my ($mod, $fn, @args) = @_;
 	my $ret;
 	my $version;
-	Giraf::Core::debug("Giraf::Module::mod_run($mod)");
+	Giraf::Core::debug("Giraf::Module::mod_run($mod,$fn)");
 	eval ('$version='.'$Giraf::Modules::' . $mod . '::version;');
 	# set_version($mod,$version);
 	eval ('$ret = ' . '&Giraf::Modules::' . $mod . '::' . $fn . '(@args);');
@@ -53,10 +51,6 @@ sub mod_mark_loaded {
 }
 
 sub init {
-	my ( $ker, $irc_session ) = @_;
-	$_kernel  = $ker;
-	$_irc     = $irc_session;
-
 	my ($req);
 
 	Giraf::Core::debug("Giraf::Module::init()");
@@ -88,7 +82,7 @@ sub init {
 				mod_mark_loaded($module_name,0);
 			}
 			else {
-				mod_run($module_name, 'init', $ker, $irc_session);
+				mod_run($module_name, 'init');
 				# Mark module as loaded
 				mod_mark_loaded($module_name,1);
 			}
@@ -97,7 +91,7 @@ sub init {
 
 	if(!$_ua)
 	{
-		$_ua=LWP::UserAgent->new;
+		$_ua=LWP::UserAgent->new(ssl_opts => { verify_hostname => 0 });
 	}
 
 
@@ -195,7 +189,7 @@ sub bot_reload_modules
 						$ligne={ action =>"MSG",dest=>$dest,msg=>'Module [c=red]'.$module_name.'[/c] borken ! (non chargé)'};
 					}
 					else {
-						mod_run($module_name, 'init', $_kernel, $_irc); # TODO: check return
+						mod_run($module_name, 'init'); # TODO: check return
 						mod_mark_loaded($module_name, 1);
 						$ligne={ action =>"MSG",dest=>$dest,msg=>'Module [c=red]'.$module_name.'[/c] rechargé !'};
 					}
@@ -229,7 +223,7 @@ sub bot_load_module {
 					$ligne={ action =>"MSG",dest=>$dest,msg=>'Module [c=red]'.$mod_exact_name.'[/c] borken ! (non chargé)'};
 				}
 				else {
-					mod_run($mod_exact_name, 'init', $_kernel, $_irc); # TODO: check return
+					mod_run($mod_exact_name, 'init'); # TODO: check return
 					mod_mark_loaded($mod_exact_name,1);
 					$ligne={ action =>"MSG",dest=>$dest,msg=>'Module [c=red]'.$mod_exact_name.'[/c] chargé !'};
 				}
@@ -425,7 +419,7 @@ sub bot_set_module {
 			{
 				my $sth=$_dbh->prepare("UPDATE modules SET ".$tbl_param."=? WHERE name LIKE ?");
 				$sth->execute($value,$name);
-				my $ligne={ action =>"MSG",dest=>$dest,msg=>'Module [c=red]'.$name.'[/c] updaté ('.$param.'='.$value.') !'};
+				my $ligne={ action =>"MSG",dest=>$dest,msg=>'Module [c=red]'.$name.'[/c] updaté ([c=cyan]'.$param.'[/c]=[c=yellow]'.$value.'[/c]) !'};
 				push(@return,$ligne);
 			}
 			else
@@ -459,24 +453,22 @@ sub bot_install_module {
 	{
 		my ($data,$parser,$doc);
 		$data=$request->content;
-		$parser = XML::LibXML->new();
-		$doc    = $parser->parse_string($data);
-		foreach my $mod ($doc->findnodes('/module_list/module'))
+		
+		$data=~s/\s//g;
+		$data=~/^<module_list>((.*)+)<\/module_list>$/;
+		my $module_list = $1;
+	
+		my (@modlist) = ($module_list =~/<module>(.+?)<\/module>/g);
+		foreach my $mod_data (@modlist)
 		{
 			my ($name,$version,$url_root,@files,@sqls);
-			$name=$mod->findvalue('./name');
-			$version=$mod->findvalue('./version');
-			$url_root=$mod->findvalue('./url_root');
-			@files=();
-			@sqls=();
-			foreach my $file ($mod->findnodes('./file'))
-			{
-				push(@files,$file->to_literal);
-			}
-			foreach my $sql ($mod->findnodes('./sql'))
-			{
-				push(@sqls,$sql->to_literal);
-			}
+			($name)= $mod_data=~/<name>(.+)<\/name>/;
+			($version)= $mod_data=~/<version>(.+)<\/version>/;
+			($url_root)= $mod_data=~/<url_root>(.+)<\/url_root>/;
+
+			@files= $mod_data=~/<file>(.+?)<\/file>/g;
+			@sqls= $mod_data=~/<sql>(.+?)<\/sql>/g;
+			
 			$modules->{$name}={
 				version=>$version,
 				url=>$url_root,
@@ -519,14 +511,20 @@ sub bot_install_module {
 					Giraf::Core::debug($f);
 					$nb_files++;
 					my $request=$_ua->get($url.'/'.$f);
+					my $ligne={ action =>"MSG",dest=>$dest,msg=>'url [c=yellow]'.$url.'/'.$f.'[/c]'};
+					push(@return,$ligne);
 					if($request->is_success)
 					{
 						open(MODFILE, '>'.'./lib/Giraf/Modules/'.$f);
 						print MODFILE $request->content;
 						close(MODFILE);
+						my $ligne={ action =>"MSG",dest=>$dest,msg=>'New file [c=yellow]'.'>'.'./lib/Giraf/Modules/'.$f.'[/c]'};
+						push(@return,$ligne);
 					}
 					else
 					{
+						my $ligne={ action =>"MSG",dest=>$dest,msg=>'Errow [c=yellow]'.$request->status_line.'[/c]'};
+						push(@return,$ligne);
 						$success=$success*0;
 					}
 				}
@@ -538,8 +536,12 @@ sub bot_install_module {
 					Giraf::Core::debug($s);
 					$nb_files++;
 					my $request=$_ua->get($url.'/'.$s);
+					my $ligne={ action =>"MSG",dest=>$dest,msg=>'url [c=yellow]'.$url.'/'.$s.'[/c]'};
+					push(@return,$ligne);
 					if($request->is_success)
 					{
+						my $ligne={ action =>"MSG",dest=>$dest,msg=>'New file [c=yellow]'.'>'.'./sql/'.$s.'[/c]'};
+						push(@return,$ligne);
 						open(MODSQL, '>'.'./sql/'.$s);
 						print MODSQL $request->content;
 						close(MODSQL);

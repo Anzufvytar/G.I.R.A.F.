@@ -18,10 +18,7 @@ use Switch;
 # Public vars
 
 # Private vars
-our $_kernel;
-our $_irc;
 our $_dbh;
-our $_botname;
 
 our $_tbl_config='config';
 our $_tbl_modules_access='modules_access';
@@ -34,12 +31,8 @@ our $_tbl_modules;
 our $_auth_modules;
 
 sub init {
-	my ( $ker, $irc_session, $botname) = @_;
-	$_kernel  = $ker;
-	$_irc     = $irc_session;
-	$_botname = $botname;
 
-	Giraf::Core::debug("Giraf::Admin::init()");
+	Giraf::Core::_debug("Giraf::Admin::init()",1);
 
 	$_tbl_users=$Giraf::User::_tbl_users;
 	$_tbl_chans=$Giraf::Chan::_tbl_chans;
@@ -58,6 +51,11 @@ sub init {
 	Giraf::Trigger::register('public_function','core','bot_admin_user',\&bot_admin_user,'user');
 	Giraf::Trigger::register('public_function','core','bot_admin_module',\&bot_admin_module,'module');
 	Giraf::Trigger::register('public_function','core','bot_register',\&bot_register_user,'register');
+	
+	Giraf::Trigger::register('private_function','core','bot_admin_main',\&bot_admin_main,'admin');
+	Giraf::Trigger::register('private_function','core','bot_admin_user',\&bot_admin_user,'user');
+	Giraf::Trigger::register('private_function','core','bot_admin_module',\&bot_admin_module,'module');
+	Giraf::Trigger::register('private_function','core','bot_register',\&bot_register_user,'register');
 
 	Giraf::Admin::module_authorized_update();
 }
@@ -66,7 +64,7 @@ sub init {
 sub set_param {
 	my ($param,$value)=@_;
 
-	Giraf::Core::debug("Giraf::Admin::set_param($param,$value)");
+	Giraf::Core::_debug("Giraf::Admin::set_param($param,$value)",5);
 
 	my $sth=$_dbh->prepare("INSERT OR REPLACE INTO $_tbl_config(name,value) VALUES(?,?)");
 	$sth->execute($param,$value);
@@ -76,7 +74,7 @@ sub set_param {
 sub get_param {
 	my ($name) = @_;
 	
-	Giraf::Core::debug("Giraf::Admin::get_param($name)");
+	Giraf::Core::_debug("Giraf::Admin::get_param($name)",5);
 	
 	my $value;
 	my $sth=$_dbh->prepare("SELECT value FROM $_tbl_config WHERE name LIKE ?");
@@ -88,7 +86,7 @@ sub get_param {
 
 sub get_dbh {
 
-	Giraf::Core::debug("Giraf::Admin::get_dbh()");
+	Giraf::Core::_debug("Giraf::Admin::get_dbh()",5);
 
 	if( !$_dbh )
 	{
@@ -503,19 +501,19 @@ sub bot_status_user {
 #Admin user management subs
 sub is_user_botadmin {
 	my ($user) = @_;
-	Giraf::Core::debug("Giraf::Admin::is_user_botadmin($user)");
+	Giraf::Core::_debug("Giraf::Admin::is_user_botadmin($user)",5);
 	return Giraf::User::is_user_botadmin($user);
 }
 
 sub is_user_admin {
 	my ($user) = @_;
-	Giraf::Core::debug("Giraf::Admin::is_user_admin($user)");
+	Giraf::Core::_debug("Giraf::Admin::is_user_admin($user)",5);
 	return Giraf::User::is_user_admin($user);
 }
 
 sub is_user_chan_admin {
 	my ($user,$chan) = @_;
-	Giraf::Core::debug("Giraf::Admin::is_user_chan_admin($user,$chan)");
+	Giraf::Core::_debug("Giraf::Admin::is_user_chan_admin($user,$chan)",5);
 	my ($uuid,$sth,$count);
 	if(is_user_admin($user))
 	{
@@ -538,20 +536,20 @@ sub is_user_chan_admin {
 
 sub is_user_registered {
 	my ($user) = @_;
-	Giraf::Core::debug("Giraf::Admin::is_user_registered");
+	Giraf::Core::_debug("Giraf::Admin::is_user_registered",5);
 	return Giraf::User::is_user_registered($user);
 }
 
 #Admin utility subs
 sub module_authorized {
 	my ($module_name,$chan) = @_;
-	Giraf::Core::debug("Giraf::Admin::module_authorized($module_name @ $chan)");
+	Giraf::Core::_debug("Giraf::Admin::module_authorized($module_name @ $chan)",5);
 	return (!$_auth_modules->{$chan}->{$module_name}->{disabled});
 }
 
 sub module_authorized_update {
 
-	Giraf::Core::debug("module_authorized_update()");
+	Giraf::Core::_debug("module_authorized_update()",3);
 
 	undef $_auth_modules;
 
@@ -570,27 +568,28 @@ sub module_authorized_update {
 #Admin user tracking subs
 sub add_user_in_chan {
 	my ($uuid,$chan) = @_;
-	Giraf::Core::debug("Giraf::Admin::add_user_in_chan($uuid,$chan)");
+	Giraf::Core::_debug("Giraf::Admin::add_user_in_chan($uuid,$chan)",3);
 	my $sth=$_dbh->prepare("INSERT OR REPLACE INTO $_tbl_users_in_chan (user_UUID,chan_name) VALUES (?,?)");
 	return $sth->execute($uuid,$chan);
 }
 
 sub del_user_in_chan {
 	my ($uuid,$chan) = @_;
-	Giraf::Core::debug("Giraf::Admin::del_user_in_chan($uuid,$chan)");
+	Giraf::Core::_debug("Giraf::Admin::del_user_in_chan($uuid,$chan)",3);
 	my $sth=$_dbh->prepare("DELETE FROM $_tbl_users_in_chan WHERE user_UUID LIKE ? AND chan_name LIKE ?");
 	return $sth->execute($uuid,$chan);
 }
 
 sub del_user_in_all_chan {
 	my ($uuid) = @_;
-	Giraf::Core::debug("Giraf::Admin::del_user_in_all_chan($uuid)");
+	Giraf::Core::_debug("Giraf::Admin::del_user_in_all_chan($uuid)",3);
 	my $sth=$_dbh->prepare("DELETE FROM $_tbl_users_in_chan WHERE user_UUID LIKE ?");
 	return $sth->execute($uuid);
 }
 
 sub user_unregister {
 	my ($uuid) = @_;
+	Giraf::Core::_debug("Giraf::Admin::user_unregister($uuid)",3);
 	my $sth=$_dbh->prepare("DELETE FROM $_tbl_chan_admin WHERE user_UUID LIKE ?");
 	return $sth->execute($uuid);
 }
