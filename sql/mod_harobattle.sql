@@ -1,4 +1,4 @@
-﻿BEGIN TRANSACTION;
+BEGIN TRANSACTION;
 
 -- Dropping the tables to begin in a clean state
 
@@ -17,7 +17,7 @@ CREATE TABLE mod_harobattle_taunts (id_haro INTEGER, win INTEGER, type_taunt TEX
 -- Inserting the data for the haros, inserting more will make more haros
 
 --                                     id  name      colour    pr  do ch  ar hp  weapon                 po  nr tr ro
-INSERT INTO mod_harobattle_haros VALUES(1, 'vert',   'green',  10, 5, 10, 3,  1, 'Fusil de sniper',     20, 1, 2,  4);
+INSERT INTO mod_harobattle_haros VALUES(1, 'vert',   'green',  11, 5, 10, 3,  1, 'Fusil de sniper',     20, 1, 2,  4);
 INSERT INTO mod_harobattle_haros VALUES(2, 'bleu',   'blue',    6, 2,  4, 5, 10, 'L4z0r PewPew',        16, 3, 0, 15);
 INSERT INTO mod_harobattle_haros VALUES(3, 'rose',   'pink',    8, 2,  7, 3, 15, 'Desert Eagle',        14, 1, 0, 10);
 INSERT INTO mod_harobattle_haros VALUES(4, 'rouge',  'red',     9, 2,  1, 4, 12, 'Fusil à deux canons', 15, 2, 1, 16);
